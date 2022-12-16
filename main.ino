@@ -2,7 +2,7 @@
 #include <Stepper.h>
 #include <EEPROM.h>
 
-const byte rxPin = 2; //Pin 2 will be used to receive the RFID code
+
 const byte BUFFER_SIZE = 14; //RFID DATA FRAME FORMAT: 1byte head (value: 2), 10byte data (2byte version + 8byte tag), 2byte checksum, 1byte tail (value: 3)
 const byte DATA_SIZE = 10; //10byte data (2byte version + 8byte tag)
 const byte DATA_VERSION_SIZE = 2; //2byte version
@@ -12,24 +12,36 @@ long storedTag;
 byte eeAddress = 0;
 long receivedTag;
 bool haveReadTag;
-
-SoftwareSerial ssrfid(rxPin, 8);
+bool configureTag;
 
 uint8_t buffer[BUFFER_SIZE]; //Array of bytes, used to store an incoming data frame
 int buffer_index = 0;
 
-const byte LED = 4;
+const byte rxPin = 4; //Pin 4 will be used to receive the RFID code
+const byte LEDPin = 5;
+const byte configureButtonPin = 2; // Pin 2 is used as an interrupt with a push button to configure a new tag
+
+SoftwareSerial ssrfid(rxPin, 8);
 
 void setup() 
 {
+  Serial.begin(9600);
   ssrfid.begin(9600); //Baud rate of the RFID module
   ssrfid.listen();
+  
   pinMode(rxPin, INPUT);
+  pinMode(LEDPin, OUTPUT);
+  pinMode(configureButtonPin, INPUT);
+  
   EEPROM.get(eeAddress, storedTag);
-  Serial.begin(9600);
-  pinMode(LED, OUTPUT);
-  digitalWrite(LED, LOW);
+  Serial.print("Stored tag: ");
+  Serial.println(storedTag);
+  
+  digitalWrite(LEDPin, LOW);
+  
   haveReadTag = false;
+
+  attachInterrupt(digitalPinToInterrupt(configureButtonPin), configure_new_tag, RISING);
 }
 
 void loop() 
@@ -37,28 +49,31 @@ void loop()
   if(!haveReadTag)
   {
     receivedTag = read_tag();
-    Serial.println(receivedTag);
     if(receivedTag == storedTag)
     {
-      digitalWrite(LED, HIGH);
+      digitalWrite(LEDPin, HIGH);
     }
     delay(3000);
-    digitalWrite(LED, LOW);
+    digitalWrite(LEDPin, LOW);
+  }
+  if(configureTag == true) //Flag set true from interrupt
+  {
+    digitalWrite(LEDPin, HIGH); //Light up LED
+    do
+    {
+      storedTag = read_tag();
+    }while(storedTag == 0);
+    Serial.print("Succesfully configured new tag: ");
+    Serial.println(storedTag);
+    EEPROM.put(eeAddress, storedTag);
+    digitalWrite(LEDPin, LOW); //Turn off LED
+    configureTag = false;
   }
 }
 
 void configure_new_tag() //Lights up LED, reads tag, stores tag in EEPROM, turns off LED
 {
-  //Light up LED
-  //...
-  do
-  {
-    storedTag = read_tag();
-  }while(storedTag != 0);
-  Serial.print("Succesfully configured new tag: ");
-  Serial.println(storedTag);
-  EEPROM.put(eeAddress, storedTag);
-  //Turn off LED
+  configureTag = true;
 }
 
 long read_tag() //Reads the tag, returns 0 if there is an error
@@ -102,7 +117,8 @@ long read_tag() //Reads the tag, returns 0 if there is an error
           long tag = extract_tag();
           if(tag != 0)
           {
-            Serial.println("Succesfully read tag");
+            Serial.print("Succesfully read tag: ");
+            Serial.println(tag);
           }
           return tag;
         }
