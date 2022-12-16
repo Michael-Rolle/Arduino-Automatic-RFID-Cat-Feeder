@@ -69,6 +69,7 @@ void loop()
 
     if(distance <= 10)
     {
+      flashLED();
       getTag = true;
       //checkProximity = false;
     }
@@ -98,6 +99,7 @@ void loop()
           getTag = false;
           break;
         }
+        flashLED();
       }
     }
     
@@ -263,4 +265,11 @@ int measure_distance()
   Serial.println(dist);
 
   return dist;
+}
+
+void flashLED()
+{
+  digitalWrite(LEDPin, HIGH);
+  delay(300);
+  digitalWrite(LEDPin, LOW);
 }
