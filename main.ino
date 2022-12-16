@@ -11,11 +11,14 @@ const byte CHECKSUM_SIZE = 2; //2byte checksum (redundancy for error checking)
 long storedTag;
 byte eeAddress = 0;
 long receivedTag;
+bool haveReadTag;
 
 SoftwareSerial ssrfid(rxPin, 8);
 
 uint8_t buffer[BUFFER_SIZE]; //Array of bytes, used to store an incoming data frame
 int buffer_index = 0;
+
+const byte LED = 4;
 
 void setup() 
 {
@@ -24,13 +27,24 @@ void setup()
   pinMode(rxPin, INPUT);
   EEPROM.get(eeAddress, storedTag);
   Serial.begin(9600);
+  pinMode(LED, OUTPUT);
+  digitalWrite(LED, LOW);
+  haveReadTag = false;
 }
 
 void loop() 
 {
-  receivedTag = read_tag();
-  Serial.println(receivedTag);
-  delay(1000);
+  if(!haveReadTag)
+  {
+    receivedTag = read_tag();
+    Serial.println(receivedTag);
+    if(receivedTag == storedTag)
+    {
+      digitalWrite(LED, HIGH);
+    }
+    delay(3000);
+    digitalWrite(LED, LOW);
+  }
 }
 
 void configure_new_tag() //Lights up LED, reads tag, stores tag in EEPROM, turns off LED
@@ -49,9 +63,9 @@ void configure_new_tag() //Lights up LED, reads tag, stores tag in EEPROM, turns
 
 long read_tag() //Reads the tag, returns 0 if there is an error
 {
-  bool tagRead = false;
+  haveReadTag = false;
   Serial.println("Reading tag...");
-  while(tagRead == false)
+  while(haveReadTag == false)
   {
     if(ssrfid.available() > 0)
     {
@@ -84,7 +98,7 @@ long read_tag() //Reads the tag, returns 0 if there is an error
       {
         if(buffer_index == BUFFER_SIZE)
         {
-          tagRead = true;
+          haveReadTag = true;
           long tag = extract_tag();
           if(tag != 0)
           {
