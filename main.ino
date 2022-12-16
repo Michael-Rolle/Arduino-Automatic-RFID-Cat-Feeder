@@ -14,6 +14,8 @@ long receivedTag;
 bool haveReadTag;
 bool configureTag;
 
+unsigned interruptCount;
+
 uint8_t buffer[BUFFER_SIZE]; //Array of bytes, used to store an incoming data frame
 int buffer_index = 0;
 
@@ -40,32 +42,55 @@ void setup()
   digitalWrite(LEDPin, LOW);
   
   haveReadTag = false;
+  interruptCount = 0;
 
   attachInterrupt(digitalPinToInterrupt(configureButtonPin), configure_new_tag, RISING);
 }
 
 void loop() 
 {
-  if(!haveReadTag)
+  Serial.println("Reading tag...");
+  while(haveReadTag != true && configureTag != true)
   {
-    receivedTag = read_tag();
+    read_tag_into(receivedTag);
+  }
+  
+  if(haveReadTag == true)
+  {
     if(receivedTag == storedTag)
     {
       digitalWrite(LEDPin, HIGH);
     }
     delay(3000);
     digitalWrite(LEDPin, LOW);
+    haveReadTag = false;
   }
+  
   if(configureTag == true) //Flag set true from interrupt
   {
+    Serial.println("Configuring new tag, present tag...");
+    haveReadTag = false;
     digitalWrite(LEDPin, HIGH); //Light up LED
-    do
+    delay(200);
+    while(haveReadTag != true)
     {
-      storedTag = read_tag();
-    }while(storedTag == 0);
-    Serial.print("Succesfully configured new tag: ");
-    Serial.println(storedTag);
-    EEPROM.put(eeAddress, storedTag);
+      read_tag_into(storedTag);
+      delay(2);
+      if(interruptCount == 2)
+        break;
+    }
+    if(haveReadTag == true && interruptCount != 2)
+    {
+      Serial.print("Succesfully configured new tag: ");
+      Serial.println(storedTag);
+      EEPROM.put(eeAddress, storedTag);
+    }
+    else if(interruptCount == 2)
+    {
+      Serial.println("Cancelled Configuration");
+      delay(200);
+    }
+    haveReadTag = false;
     digitalWrite(LEDPin, LOW); //Turn off LED
     configureTag = false;
   }
@@ -73,60 +98,64 @@ void loop()
 
 void configure_new_tag() //Lights up LED, reads tag, stores tag in EEPROM, turns off LED
 {
+  if(interruptCount == 2)
+  {
+    interruptCount = 0;
+  }
+  else
+  {
+    interruptCount++;
+  }
   configureTag = true;
 }
 
-long read_tag() //Reads the tag, returns 0 if there is an error
+void read_tag_into(long &placeHolder) //Reads the tag, returns 0 if there is an error
 {
-  haveReadTag = false;
-  Serial.println("Reading tag...");
-  while(haveReadTag == false)
+  if(ssrfid.available() > 0)
   {
-    if(ssrfid.available() > 0)
+    bool call_extract_tag = false;
+
+    int ssvalue = ssrfid.read(); //Read one byte
+    if(ssvalue == -1) //No data was read
     {
-      bool call_extract_tag = false;
-  
-      int ssvalue = ssrfid.read(); //Read one byte
-      if(ssvalue == -1) //No data was read
+      return;
+    }
+
+    if(ssvalue == 2) //RDM6300 found a tag => tag incoming
+    {
+      buffer_index = 0;
+    }
+    else if (ssvalue == 3) //Tag has been fully transmitted
+    {
+      call_extract_tag = true; //Extract tag at the end of the function call
+    }
+
+    if(buffer_index >= BUFFER_SIZE) //Checking for buffer overflow
+    {
+      Serial.println("Error: Buffer overflow detected!");
+      return;
+    }
+
+    buffer[buffer_index++] = ssvalue; //everything is alright, copy current value to buffer
+
+    if(call_extract_tag == true)
+    {
+      if(buffer_index == BUFFER_SIZE)
       {
-        continue;
+        haveReadTag = true;
+        long tag = extract_tag();
+        if(tag != 0)
+        {
+          Serial.print("Succesfully read tag: ");
+          Serial.println(tag);
+        }
+        placeHolder = tag;
+        return;
       }
-  
-      if(ssvalue == 2) //RDM6300 found a tag => tag incoming
+      else //Something is wrong... start again looking for preamble (value: 2)
       {
         buffer_index = 0;
-      }
-      else if (ssvalue == 3) //Tag has been fully transmitted
-      {
-        call_extract_tag = true; //Extract tag at the end of the function call
-      }
-  
-      if(buffer_index >= BUFFER_SIZE) //Checking for buffer overflow
-      {
-        Serial.println("Error: Buffer overflow detected!");
-        continue;
-      }
-  
-      buffer[buffer_index++] = ssvalue; //everything is alright, copy current value to buffer
-  
-      if(call_extract_tag == true)
-      {
-        if(buffer_index == BUFFER_SIZE)
-        {
-          haveReadTag = true;
-          long tag = extract_tag();
-          if(tag != 0)
-          {
-            Serial.print("Succesfully read tag: ");
-            Serial.println(tag);
-          }
-          return tag;
-        }
-        else //Something is wrong... start again looking for preamble (value: 2)
-        {
-          buffer_index = 0;
-          continue;
-        }
+        return;
       }
     }
   }
