@@ -20,8 +20,8 @@ uint8_t buffer[BUFFER_SIZE]; //Array of bytes, used to store an incoming data fr
 int buffer_index = 0;
 
 const byte rxPin = 4; //Pin 4 will be used to receive the RFID code
-const byte LEDPin = 5;
-const byte configureButtonPin = 2; // Pin 2 is used as an interrupt with a push button to configure a new tag
+const byte LEDPin = 5; //Pin 5 is used for the LED
+const byte configureButtonPin = 2; // Pin 2 is used as an interrupt with a push button (with a pull down resistor) to configure a new tag
 
 SoftwareSerial ssrfid(rxPin, 8);
 
