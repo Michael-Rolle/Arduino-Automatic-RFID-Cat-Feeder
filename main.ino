@@ -13,6 +13,10 @@ byte eeAddress = 0;
 long receivedTag;
 bool haveReadTag;
 bool configureTag;
+int distance;
+long duration;
+bool checkProximity;
+bool getTag;
 
 unsigned interruptCount;
 
@@ -22,6 +26,8 @@ int buffer_index = 0;
 const byte rxPin = 4; //Pin 4 will be used to receive the RFID code
 const byte LEDPin = 5; //Pin 5 is used for the LED
 const byte configureButtonPin = 2; // Pin 2 is used as an interrupt with a push button (with a pull down resistor) to configure a new tag
+const byte trigPin = 6;
+const byte echoPin = 7;
 
 SoftwareSerial ssrfid(rxPin, 8);
 
@@ -34,14 +40,20 @@ void setup()
   pinMode(rxPin, INPUT);
   pinMode(LEDPin, OUTPUT);
   pinMode(configureButtonPin, INPUT);
+  pinMode(trigPin, OUTPUT);
+  pinMode(echoPin, INPUT);
   
   EEPROM.get(eeAddress, storedTag);
   Serial.print("Stored tag: ");
   Serial.println(storedTag);
   
   digitalWrite(LEDPin, LOW);
+  digitalWrite(trigPin, LOW);
   
   haveReadTag = false;
+  checkProximity = true;
+  getTag = false;
+  configureTag = false;
   interruptCount = 0;
 
   attachInterrupt(digitalPinToInterrupt(configureButtonPin), configure_new_tag, RISING);
@@ -49,23 +61,60 @@ void setup()
 
 void loop() 
 {
-  Serial.println("Reading tag...");
-  while(haveReadTag != true && configureTag != true)
+  if(checkProximity == true) //Main thing that will happen is checking the proximity
   {
-    read_tag_into(receivedTag);
-  }
+    delay(3000); //Check proximity every 3 seconds
   
-  if(haveReadTag == true)
-  {
-    if(receivedTag == storedTag)
+    distance = measure_distance();
+
+    if(distance <= 10)
     {
-      digitalWrite(LEDPin, HIGH);
+      getTag = true;
+      //checkProximity = false;
     }
-    delay(3000);
-    digitalWrite(LEDPin, LOW);
-    haveReadTag = false;
+    if(getTag == true && distance > 10)
+    {
+      getTag = false;
+    }
   }
   
+  if(getTag == true)
+  {
+    Serial.println("Reading tag...");
+    //int count = 0;
+    unsigned long previousTime = millis();
+    unsigned long currentTime = previousTime;
+    while(haveReadTag != true && configureTag != true)
+    {
+      read_tag_into(receivedTag);
+      delay(2);
+      currentTime = millis();
+      if(currentTime - previousTime > 3000)
+      {
+        previousTime = currentTime;
+        distance = measure_distance();
+        if(distance >= 15)
+        {
+          getTag = false;
+          break;
+        }
+      }
+    }
+    
+    if(haveReadTag == true)
+    {
+      if(receivedTag == storedTag)
+      {
+        digitalWrite(LEDPin, HIGH);
+      }
+      delay(3000);
+      digitalWrite(LEDPin, LOW);
+      haveReadTag = false;
+    }
+    getTag = false;
+    checkProximity = true;
+  } 
+    
   if(configureTag == true) //Flag set true from interrupt
   {
     Serial.println("Configuring new tag, present tag...");
@@ -194,4 +243,24 @@ long hexstr_to_value(char *str, unsigned int length) //Converts HEX value (encod
   long value = strtol(copy, NULL, 16); //strtol converts a null-terminated string to a long value
   free(copy); //clean up
   return value;
+}
+
+int measure_distance()
+{
+  digitalWrite(trigPin, LOW);
+  delayMicroseconds(2);
+  
+  //Trigger the ultrasonic burst
+  digitalWrite(trigPin, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(trigPin, LOW);
+
+  //Measure the duration
+  duration = pulseIn(echoPin, HIGH);
+  int dist = duration*0.034/2;
+
+  Serial.print("Distance: ");
+  Serial.println(dist);
+
+  return dist;
 }
