@@ -1,6 +1,7 @@
 #include <SoftwareSerial.h>
 #include <Stepper.h>
 #include <EEPROM.h>
+#include <LowPower.h>
 
 
 const byte BUFFER_SIZE = 14; //RFID DATA FRAME FORMAT: 1byte head (value: 2), 10byte data (2byte version + 8byte tag), 2byte checksum, 1byte tail (value: 3)
@@ -17,6 +18,7 @@ int distance;
 long duration;
 bool checkProximity;
 bool getTag;
+bool gateOpen;
 
 unsigned interruptCount;
 
@@ -54,6 +56,7 @@ void setup()
   checkProximity = true;
   getTag = false;
   configureTag = false;
+  gateOpen = false;
   interruptCount = 0;
 
   attachInterrupt(digitalPinToInterrupt(configureButtonPin), configure_new_tag, RISING);
@@ -63,19 +66,26 @@ void loop()
 {
   if(checkProximity == true) //Main thing that will happen is checking the proximity
   {
-    delay(3000); //Check proximity every 3 seconds
+    delay(4000); //Check proximity every 4 seconds
+    //LowPower.idle(SLEEP_4S, ADC_OFF, TIMER2_OFF, TIMER1_OFF, TIMER0_OFF, SPI_OFF, USART0_OFF, TWI_OFF); //Go to sleep for 4 seconds between readings
+    //delay(500);
   
     distance = measure_distance();
 
-    if(distance <= 10)
+    if(distance <= 10 && gateOpen != true)
     {
       flashLED();
       getTag = true;
       //checkProximity = false;
     }
-    if(getTag == true && distance > 10)
+    /*if(getTag == true && distance > 10)
     {
       getTag = false;
+    }
+    */
+    if(distance >= 15 && gateOpen == true)
+    {
+      closeGate();
     }
   }
   
@@ -90,7 +100,7 @@ void loop()
       read_tag_into(receivedTag);
       delay(2);
       currentTime = millis();
-      if(currentTime - previousTime > 3000)
+      if(currentTime - previousTime > 4000)
       {
         previousTime = currentTime;
         distance = measure_distance();
@@ -99,6 +109,7 @@ void loop()
           getTag = false;
           break;
         }
+        Serial.println("Reading tag...");
         flashLED();
       }
     }
@@ -109,7 +120,7 @@ void loop()
       {
         digitalWrite(LEDPin, HIGH);
       }
-      delay(3000);
+      openGate();
       digitalWrite(LEDPin, LOW);
       haveReadTag = false;
     }
@@ -272,4 +283,18 @@ void flashLED()
   digitalWrite(LEDPin, HIGH);
   delay(300);
   digitalWrite(LEDPin, LOW);
+}
+
+void openGate()
+{
+  Serial.println("Opening gate...");
+  delay(6000);
+  gateOpen = true;
+}
+
+void closeGate()
+{
+  Serial.println("Closing gate...");
+  delay(6000);
+  gateOpen = false;
 }
