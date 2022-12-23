@@ -29,7 +29,7 @@ const byte configureButtonPin = 2; // Pin 2 is used as an interrupt with a push 
 const byte trigPin = 6;
 const byte echoPin = 7;
 
-SoftwareSerial ssrfid(rxPin, 8);
+SoftwareSerial ssrfid(rxPin, 12);
 
 void setup() 
 {
