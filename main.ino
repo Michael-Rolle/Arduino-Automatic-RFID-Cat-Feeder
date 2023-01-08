@@ -2,6 +2,7 @@
 #include <Stepper.h>
 #include <EEPROM.h>
 #include <LowPower.h>
+#include <NewPing.h>
 
 
 const byte BUFFER_SIZE = 14; //RFID DATA FRAME FORMAT: 1byte head (value: 2), 10byte data (2byte version + 8byte tag), 2byte checksum, 1byte tail (value: 3)
@@ -30,8 +31,12 @@ const byte LEDPin = 5; //Pin 5 is used for the LED
 const byte configureButtonPin = 2; // Pin 2 is used as an interrupt with a push button (with a pull down resistor) to configure a new tag
 const byte trigPin = 6;
 const byte echoPin = 7;
+//const byte RFIDPower = 12;
 
-SoftwareSerial ssrfid(rxPin, 12);
+const int maxDistance = 10000;
+
+NewPing sonar(trigPin, echoPin, maxDistance);
+SoftwareSerial ssrfid(rxPin, 13);
 
 void setup() 
 {
@@ -44,6 +49,7 @@ void setup()
   pinMode(configureButtonPin, INPUT);
   pinMode(trigPin, OUTPUT);
   pinMode(echoPin, INPUT);
+  //pinMode(RFIDPower, OUTPUT);
   
   EEPROM.get(eeAddress, storedTag);
   Serial.print("Stored tag: ");
@@ -51,6 +57,7 @@ void setup()
   
   digitalWrite(LEDPin, LOW);
   digitalWrite(trigPin, LOW);
+  //digitalWrite(RFIDPower, HIGH);
   
   haveReadTag = false;
   checkProximity = true;
@@ -119,10 +126,11 @@ void loop()
       if(receivedTag == storedTag)
       {
         digitalWrite(LEDPin, HIGH);
+        openGate();
+        digitalWrite(LEDPin, LOW);
       }
-      openGate();
-      digitalWrite(LEDPin, LOW);
       haveReadTag = false;
+      //resetRFID();
     }
     getTag = false;
     checkProximity = true;
@@ -158,6 +166,8 @@ void loop()
   }
 }
 
+
+//Functions
 void configure_new_tag() //Lights up LED, reads tag, stores tag in EEPROM, turns off LED
 {
   if(interruptCount == 2)
@@ -260,18 +270,8 @@ long hexstr_to_value(char *str, unsigned int length) //Converts HEX value (encod
 
 int measure_distance()
 {
-  digitalWrite(trigPin, LOW);
-  delayMicroseconds(2);
+  int dist = sonar.ping_cm();
   
-  //Trigger the ultrasonic burst
-  digitalWrite(trigPin, HIGH);
-  delayMicroseconds(10);
-  digitalWrite(trigPin, LOW);
-
-  //Measure the duration
-  duration = pulseIn(echoPin, HIGH);
-  int dist = duration*0.034/2;
-
   Serial.print("Distance: ");
   Serial.println(dist);
 
@@ -298,3 +298,11 @@ void closeGate()
   delay(6000);
   gateOpen = false;
 }
+
+/*void resetRFID()
+{
+  Serial.println("Resetting RFID reader");
+  digitalWrite(RFIDPower, LOW);
+  delay(500);
+  digitalWrite(RFIDPower, HIGH);
+}*/
