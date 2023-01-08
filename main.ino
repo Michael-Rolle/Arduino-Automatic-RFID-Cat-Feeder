@@ -32,11 +32,15 @@ const byte LEDPin = 5; //Pin 5 is used for the LED
 const byte configureButtonPin = 2; // Pin 2 is used as an interrupt with a push button (with a pull down resistor) to configure a new tag
 const byte trigPin = 6;
 const byte echoPin = 7;
+const byte limitSwitchClosed = 12;
+const byte limitSwitchOpen = 13;
 
 const int maxDistance = 10000;
+const int stepsPerRevolution = 2038;
 
 NewPing sonar(trigPin, echoPin, maxDistance);
-SoftwareSerial ssrfid(rxPin, 13);
+SoftwareSerial ssrfid(rxPin, 3);
+Stepper myStepper(stepsPerRevolution, 8, 10, 9, 11);
 
 void setup() 
 {
@@ -49,6 +53,8 @@ void setup()
   pinMode(configureButtonPin, INPUT);
   pinMode(trigPin, OUTPUT);
   pinMode(echoPin, INPUT);
+  pinMode(limitSwitchClosed, INPUT);
+  pinMode(limitSwitchOpen, INPUT);
   
   EEPROM.get(eeAddress, storedTag);
   Serial.print("Stored tag: ");
@@ -65,6 +71,19 @@ void setup()
   interruptCount = 0;
 
   attachInterrupt(digitalPinToInterrupt(configureButtonPin), configure_new_tag, RISING);
+
+  myStepper.setSpeed(10); //10 RPM
+
+  Serial.println("Closing gate...");
+  while(digitalRead(limitSwitchClosed) == LOW)
+  {
+    myStepper.step(-10);
+  }
+  while(digitalRead(limitSwitchClosed) == HIGH)
+  {
+    myStepper.step(10); //Move the gate slightly away from the switch to deactivate it
+  }
+  Serial.println("Gate Closed");
 }
 
 void loop() 
@@ -80,10 +99,9 @@ void loop()
       flashLED();
       getTag = true;
     }
-    if(distance >= 15 && gateOpen == true)
+    if((distance >= 15 || distance == 0) && gateOpen == true)
     {
       closeGate();
-      //multipleRead = false;
     }
   }
   
@@ -155,6 +173,7 @@ void loop()
     haveReadTag = false;
     digitalWrite(LEDPin, LOW); //Turn off LED
     configureTag = false;
+    clearRFID();
   }
 }
 
@@ -280,14 +299,30 @@ void flashLED()
 void openGate()
 {
   Serial.println("Opening gate...");
-  delay(6000);
+  while(digitalRead(limitSwitchOpen) == LOW)
+  {
+    myStepper.step(10);
+  }
+  while(digitalRead(limitSwitchOpen) == HIGH)
+  {
+    myStepper.step(-10); //Move gate slightly so that switch deactivates
+  }
+  Serial.println("Gate Open");
   gateOpen = true;
 }
 
 void closeGate()
 {
   Serial.println("Closing gate...");
-  delay(6000);
+  while(digitalRead(limitSwitchClosed) == LOW)
+  {
+    myStepper.step(-10);
+  }
+  while(digitalRead(limitSwitchClosed) == HIGH)
+  {
+    myStepper.step(10); //Move gate slightly to deactivate the switch
+  }
+  Serial.println("Gate Closed");
   gateOpen = false;
 }
 
