@@ -20,6 +20,7 @@ long duration;
 bool checkProximity;
 bool getTag;
 bool gateOpen;
+bool multipleRead;
 
 unsigned interruptCount;
 
@@ -31,7 +32,6 @@ const byte LEDPin = 5; //Pin 5 is used for the LED
 const byte configureButtonPin = 2; // Pin 2 is used as an interrupt with a push button (with a pull down resistor) to configure a new tag
 const byte trigPin = 6;
 const byte echoPin = 7;
-//const byte RFIDPower = 12;
 
 const int maxDistance = 10000;
 
@@ -49,7 +49,6 @@ void setup()
   pinMode(configureButtonPin, INPUT);
   pinMode(trigPin, OUTPUT);
   pinMode(echoPin, INPUT);
-  //pinMode(RFIDPower, OUTPUT);
   
   EEPROM.get(eeAddress, storedTag);
   Serial.print("Stored tag: ");
@@ -57,7 +56,6 @@ void setup()
   
   digitalWrite(LEDPin, LOW);
   digitalWrite(trigPin, LOW);
-  //digitalWrite(RFIDPower, HIGH);
   
   haveReadTag = false;
   checkProximity = true;
@@ -74,25 +72,18 @@ void loop()
   if(checkProximity == true) //Main thing that will happen is checking the proximity
   {
     delay(4000); //Check proximity every 4 seconds
-    //LowPower.idle(SLEEP_4S, ADC_OFF, TIMER2_OFF, TIMER1_OFF, TIMER0_OFF, SPI_OFF, USART0_OFF, TWI_OFF); //Go to sleep for 4 seconds between readings
-    //delay(500);
   
     distance = measure_distance();
 
-    if(distance <= 10 && gateOpen != true)
+    if(distance <= 10 && distance != 0 && gateOpen != true)
     {
       flashLED();
       getTag = true;
-      //checkProximity = false;
     }
-    /*if(getTag == true && distance > 10)
-    {
-      getTag = false;
-    }
-    */
     if(distance >= 15 && gateOpen == true)
     {
       closeGate();
+      //multipleRead = false;
     }
   }
   
@@ -114,6 +105,7 @@ void loop()
         if(distance >= 15)
         {
           getTag = false;
+          haveReadTag = false;
           break;
         }
         Serial.println("Reading tag...");
@@ -130,7 +122,7 @@ void loop()
         digitalWrite(LEDPin, LOW);
       }
       haveReadTag = false;
-      //resetRFID();
+      clearRFID();    
     }
     getTag = false;
     checkProximity = true;
@@ -299,10 +291,35 @@ void closeGate()
   gateOpen = false;
 }
 
-/*void resetRFID()
-{
-  Serial.println("Resetting RFID reader");
-  digitalWrite(RFIDPower, LOW);
-  delay(500);
-  digitalWrite(RFIDPower, HIGH);
+/*void clearRFID()
+{ 
+  int ssvalue = 0;
+  while(ssvalue != -1)
+  {
+    ssvalue = ssrfid.read(); //Read one byte, returns -1 if no data is read
+  }
+  ssvalue = ssrfid.read();
 }*/
+
+void clearRFID()
+{
+  float previousTime = millis();
+  float currentTime = previousTime;
+  byte count = 0;
+  while(count != 10)
+  {
+    currentTime = millis();
+    if(currentTime - previousTime > 10000) //time out in case stuck in loop
+    {
+      return;
+    }
+    ssrfid.read();
+    if(ssrfid.available() == 0)
+    {
+      count++;
+      delay(10);
+    }
+  }
+  Serial.println("RFID is clear");
+  ssrfid.read();
+}
