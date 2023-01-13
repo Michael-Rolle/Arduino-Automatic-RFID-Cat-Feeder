@@ -21,6 +21,8 @@ bool checkProximity;
 bool getTag;
 bool gateOpen;
 bool multipleRead;
+unsigned long prevTime;
+unsigned long currTime;
 
 unsigned interruptCount;
 
@@ -84,41 +86,48 @@ void setup()
     myStepper.step(10); //Move the gate slightly away from the switch to deactivate it
   }
   Serial.println("Gate Closed");
+
+  currTime = millis();
+  prevTime = currTime;
 }
 
 void loop() 
 {
   if(checkProximity == true) //Main thing that will happen is checking the proximity
   {
-    delay(4000); //Check proximity every 4 seconds
-  
-    distance = measure_distance();
+    //delay(4000); //Check proximity every 4 seconds
+    currTime = millis();
 
-    if(distance <= 10 && distance != 0 && gateOpen != true)
+    if(currTime - prevTime > 4000)
     {
-      flashLED();
-      getTag = true;
-    }
-    if((distance >= 15 || distance == 0) && gateOpen == true)
-    {
-      closeGate();
-    }
+      prevTime = currTime;
+      distance = measure_distance();
+
+      if(distance <= 10 && distance != 0 && gateOpen != true)
+      {
+        flashLED();
+        getTag = true;
+      }
+      if((distance >= 15 || distance == 0) && gateOpen == true)
+      {
+        closeGate();
+      }
+    }   
   }
   
   if(getTag == true)
   {
     Serial.println("Reading tag...");
-    //int count = 0;
-    unsigned long previousTime = millis();
-    unsigned long currentTime = previousTime;
+    currTime = millis();
+    prevTime = currTime;
     while(haveReadTag != true && configureTag != true)
     {
       read_tag_into(receivedTag);
       delay(2);
-      currentTime = millis();
-      if(currentTime - previousTime > 4000)
+      currTime = millis();
+      if(currTime - prevTime > 4000)
       {
-        previousTime = currentTime;
+        prevTime = currTime;
         distance = measure_distance();
         if(distance >= 15)
         {
@@ -338,13 +347,13 @@ void closeGate()
 
 void clearRFID()
 {
-  float previousTime = millis();
-  float currentTime = previousTime;
+  currTime = millis();
+  prevTime = currTime;
   byte count = 0;
   while(count != 10)
   {
-    currentTime = millis();
-    if(currentTime - previousTime > 10000) //time out in case stuck in loop
+    currTime = millis();
+    if(currTime - prevTime > 10000) //time out in case stuck in loop
     {
       return;
     }
@@ -352,7 +361,7 @@ void clearRFID()
     if(ssrfid.available() == 0)
     {
       count++;
-      delay(10);
+      delay(50);
     }
   }
   Serial.println("RFID is clear");
