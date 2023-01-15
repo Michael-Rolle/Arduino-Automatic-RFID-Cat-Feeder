@@ -303,13 +303,18 @@ void flashLED()
 
 void openGate()
 {
+  if(digitalRead(limitSwitchOpen) == LOW)
+  {
+    Serial.println("Limit switch malfunction, not opening gate...");
+    return;
+  }
   Serial.println("Opening gate..."); 
   digitalWrite(LEDPin, HIGH);
-  while(digitalRead(limitSwitchOpen) == LOW)
+  while(digitalRead(limitSwitchOpen) == HIGH)
   {
     myStepper.step(-10);
   }
-  while(digitalRead(limitSwitchOpen) == HIGH)
+  while(digitalRead(limitSwitchOpen) == LOW)
   {
     myStepper.step(10); //Move gate slightly so that switch deactivates
   }
@@ -320,13 +325,18 @@ void openGate()
 
 void closeGate()
 {
+  if(digitalRead(limitSwitchClosed) == LOW)
+  {
+    Serial.println("Limit switch malfunction, not closing gate...");
+    return;
+  }
   Serial.println("Closing gate...");
   digitalWrite(LEDPin, HIGH);
-  while(digitalRead(limitSwitchClosed) == LOW)
+  while(digitalRead(limitSwitchClosed) == HIGH)
   {
     myStepper.step(10);
   }
-  while(digitalRead(limitSwitchClosed) == HIGH)
+  while(digitalRead(limitSwitchClosed) == LOW)
   {
     myStepper.step(-10); //Move gate slightly to deactivate the switch
   }
