@@ -96,7 +96,7 @@ void loop()
   {
     currTime = millis();
 
-    if(currTime - prevTime > 4000)
+    if(currTime - prevTime > 3000)
     {
       prevTime = currTime;
       distance = measure_distance();
