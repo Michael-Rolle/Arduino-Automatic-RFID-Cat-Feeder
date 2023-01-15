@@ -4,6 +4,13 @@
 #include <LowPower.h>
 #include <NewPing.h>
 
+#define configureButtonPin 2
+#define rxPin 4
+#define LEDPin 5
+#define trigPin 6
+#define echoPin 7
+#define limitSwitchClosed 12
+#define limitSwitchOpen 13
 
 const byte BUFFER_SIZE = 14; //RFID DATA FRAME FORMAT: 1byte head (value: 2), 10byte data (2byte version + 8byte tag), 2byte checksum, 1byte tail (value: 3)
 const byte DATA_SIZE = 10; //10byte data (2byte version + 8byte tag)
@@ -29,13 +36,14 @@ unsigned interruptCount;
 uint8_t buffer[BUFFER_SIZE]; //Array of bytes, used to store an incoming data frame
 int buffer_index = 0;
 
-const byte rxPin = 4; //Pin 4 will be used to receive the RFID code
+/*const byte rxPin = 4; //Pin 4 will be used to receive the RFID code
 const byte LEDPin = 5; //Pin 5 is used for the LED
 const byte configureButtonPin = 2; // Pin 2 is used as an interrupt with a push button (with a pull down resistor) to configure a new tag
 const byte trigPin = 6;
 const byte echoPin = 7;
 const byte limitSwitchClosed = 12;
 const byte limitSwitchOpen = 13;
+*/
 
 const int maxDistance = 10000;
 const int stepsPerRevolution = 2038;
@@ -76,16 +84,7 @@ void setup()
 
   myStepper.setSpeed(10); //10 RPM
 
-  Serial.println("Closing gate...");
-  while(digitalRead(limitSwitchClosed) == LOW)
-  {
-    myStepper.step(-10);
-  }
-  while(digitalRead(limitSwitchClosed) == HIGH)
-  {
-    myStepper.step(10); //Move the gate slightly away from the switch to deactivate it
-  }
-  Serial.println("Gate Closed");
+  closeGate();
 
   currTime = millis();
   prevTime = currTime;
@@ -95,7 +94,6 @@ void loop()
 {
   if(checkProximity == true) //Main thing that will happen is checking the proximity
   {
-    //delay(4000); //Check proximity every 4 seconds
     currTime = millis();
 
     if(currTime - prevTime > 4000)
@@ -144,9 +142,7 @@ void loop()
     {
       if(receivedTag == storedTag)
       {
-        digitalWrite(LEDPin, HIGH);
         openGate();
-        digitalWrite(LEDPin, LOW);
       }
       haveReadTag = false;
       clearRFID();    
@@ -307,15 +303,17 @@ void flashLED()
 
 void openGate()
 {
-  Serial.println("Opening gate...");
+  Serial.println("Opening gate..."); 
+  digitalWrite(LEDPin, HIGH);
   while(digitalRead(limitSwitchOpen) == LOW)
   {
-    myStepper.step(10);
+    myStepper.step(-10);
   }
   while(digitalRead(limitSwitchOpen) == HIGH)
   {
-    myStepper.step(-10); //Move gate slightly so that switch deactivates
+    myStepper.step(10); //Move gate slightly so that switch deactivates
   }
+  digitalWrite(LEDPin, LOW);
   Serial.println("Gate Open");
   gateOpen = true;
 }
@@ -323,27 +321,19 @@ void openGate()
 void closeGate()
 {
   Serial.println("Closing gate...");
+  digitalWrite(LEDPin, HIGH);
   while(digitalRead(limitSwitchClosed) == LOW)
   {
-    myStepper.step(-10);
+    myStepper.step(10);
   }
   while(digitalRead(limitSwitchClosed) == HIGH)
   {
-    myStepper.step(10); //Move gate slightly to deactivate the switch
+    myStepper.step(-10); //Move gate slightly to deactivate the switch
   }
+  digitalWrite(LEDPin, LOW);
   Serial.println("Gate Closed");
   gateOpen = false;
 }
-
-/*void clearRFID()
-{ 
-  int ssvalue = 0;
-  while(ssvalue != -1)
-  {
-    ssvalue = ssrfid.read(); //Read one byte, returns -1 if no data is read
-  }
-  ssvalue = ssrfid.read();
-}*/
 
 void clearRFID()
 {
