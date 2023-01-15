@@ -36,15 +36,6 @@ unsigned interruptCount;
 uint8_t buffer[BUFFER_SIZE]; //Array of bytes, used to store an incoming data frame
 int buffer_index = 0;
 
-/*const byte rxPin = 4; //Pin 4 will be used to receive the RFID code
-const byte LEDPin = 5; //Pin 5 is used for the LED
-const byte configureButtonPin = 2; // Pin 2 is used as an interrupt with a push button (with a pull down resistor) to configure a new tag
-const byte trigPin = 6;
-const byte echoPin = 7;
-const byte limitSwitchClosed = 12;
-const byte limitSwitchOpen = 13;
-*/
-
 const int maxDistance = 10000;
 const int stepsPerRevolution = 2038;
 
@@ -96,7 +87,7 @@ void loop()
   {
     currTime = millis();
 
-    if(currTime - prevTime > 3000)
+    if(currTime - prevTime > 3000) 
     {
       prevTime = currTime;
       distance = measure_distance();
@@ -308,19 +299,21 @@ void openGate()
     Serial.println("Limit switch malfunction, not opening gate...");
     return;
   }
+  activateMotor();
   Serial.println("Opening gate..."); 
   digitalWrite(LEDPin, HIGH);
   while(digitalRead(limitSwitchOpen) == HIGH)
   {
-    myStepper.step(-10);
+    myStepper.step(10);
   }
   while(digitalRead(limitSwitchOpen) == LOW)
   {
-    myStepper.step(10); //Move gate slightly so that switch deactivates
+    myStepper.step(-10); //Move gate slightly so that switch deactivates
   }
   digitalWrite(LEDPin, LOW);
   Serial.println("Gate Open");
   gateOpen = true;
+  deactivateMotor();
 }
 
 void closeGate()
@@ -330,19 +323,21 @@ void closeGate()
     Serial.println("Limit switch malfunction, not closing gate...");
     return;
   }
+  activateMotor();
   Serial.println("Closing gate...");
   digitalWrite(LEDPin, HIGH);
   while(digitalRead(limitSwitchClosed) == HIGH)
   {
-    myStepper.step(10);
+    myStepper.step(-10);
   }
   while(digitalRead(limitSwitchClosed) == LOW)
   {
-    myStepper.step(-10); //Move gate slightly to deactivate the switch
+    myStepper.step(10); //Move gate slightly to deactivate the switch
   }
   digitalWrite(LEDPin, LOW);
   Serial.println("Gate Closed");
   gateOpen = false;
+  deactivateMotor();
 }
 
 void clearRFID()
@@ -366,4 +361,20 @@ void clearRFID()
   }
   Serial.println("RFID is clear");
   ssrfid.read();
+}
+
+void activateMotor()
+{
+  digitalWrite(8, HIGH);
+  digitalWrite(9, HIGH);
+  digitalWrite(10, HIGH);
+  digitalWrite(11, HIGH);
+}
+
+void deactivateMotor()
+{
+  digitalWrite(8, LOW);
+  digitalWrite(9, LOW);
+  digitalWrite(10, LOW);
+  digitalWrite(11, LOW);
 }
