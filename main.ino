@@ -148,18 +148,22 @@ void loop()
     haveReadTag = false;
     digitalWrite(LEDPin, HIGH); //Light up LED
     delay(200);
+    currTime = millis();
+    prevTime = currTime;
     while(haveReadTag != true)
     {
+      currTime = millis();
+      if(currTime - prevTime > 10000 || interruptCount == 2)
+        break;
       read_tag_into(storedTag);
       delay(2);
-      if(interruptCount == 2)
-        break;
     }
     if(haveReadTag == true && interruptCount != 2)
     {
       Serial.print("Succesfully configured new tag: ");
       Serial.println(storedTag);
       EEPROM.put(eeAddress, storedTag);
+      tripleFlash();
     }
     else if(interruptCount == 2)
     {
@@ -290,6 +294,18 @@ void flashLED()
   digitalWrite(LEDPin, HIGH);
   delay(300);
   digitalWrite(LEDPin, LOW);
+}
+
+void tripleFlash()
+{
+  digitalWrite(LEDPin, LOW);
+  for(unsigned i = 0; i < 3; i++)
+  {
+    delay(200);
+    digitalWrite(LEDPin, HIGH);
+    delay(200);
+    digitalWrite(LEDPin, LOW);
+  }
 }
 
 void openGate()
