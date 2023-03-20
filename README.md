@@ -11,3 +11,5 @@ LED;
 The program works by getting values from the distance sensor every couple of seconds. If there is an object within range, the system will then try to scan for an RFID tag. If it succesfully reads an RFID tag it will open the gate if the tag matches the stored tag in the EEPROM. The gate then closes once the cat is out of range of the distance sensor.
 The button is used to configure a new RFID tag into the EEPROM of the nano, by holding it near the antenna, in case the original one is lost. It can be pressed a second time to cancel this process, otherwise it wil time out after 10 seconds and return to its normal running in case a cat accidently presses the button.
 The program uses limit switches to detect when the gate has fully opened or fully closed. On startup the gate is closed until the limit switch is hit and then opens until it is just out of range of the switch. This ensures that the gate closes if the system lost power while the gate was half open.
+
+See the Cat Feeder Schematic pdf for the circuit diagram and casing idea.
